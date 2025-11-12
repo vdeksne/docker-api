@@ -80,6 +80,41 @@ Set one of:
 - `DATABASE_URL=postgres://<user>:<pass>@<host>:<port>/<db>`
 - Or `PGHOST`, `PGPORT`, `PGDATABASE`, `PGUSER`, `PGPASSWORD`
 
+## Production deployment
+
+- Frontend: deployed on Vercel at [https://frontend-nine-theta-37.vercel.app/](https://frontend-nine-theta-37.vercel.app/).
+- Backend: Docker container on a DigitalOcean droplet exposing `http://139.59.138.164:8081`.
+- Database: Neon serverless Postgres (project `docker-api`).
+- Redis: single-node container on the droplet (`redis://default:redispass@localhost:6379`).
+
+### Rebuild & redeploy backend
+
+```bash
+ssh root@139.59.138.164
+cd /root/docker-api
+git pull
+docker build -f Dockerfile.backend -t wb-backend:latest .
+docker rm -f docker-api || true
+docker run -d --name docker-api \
+  -p 8081:4000 \
+  -e NODE_ENV=production \
+  -e PORT=4000 \
+  -e DATABASE_URL="postgresql://neondb_owner:npg_x6Sk8tyCZaRW@ep-silent-union-a4vy2o2n-pooler.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require" \
+  -e PYTHON_EXECUTABLE=python3 \
+  -e ML_SCRIPT_PATH=/app/ml/run_prediction.py \
+  -e ML_CACHE_TTL_MS=300000 \
+  -e FRONTEND_ORIGIN="https://frontend-nine-theta-37.vercel.app" \
+  -e REDIS_URL="redis://default:redispass@localhost:6379" \
+  wb-backend:latest
+```
+
+Health check: `curl http://139.59.138.164:8081/api/health`
+
+### Frontend environment
+
+- Copy `frontend/env.production.example` to `frontend/.env.production` (or configure in Vercel).
+- Set `VITE_BACKEND_URL` to the droplet URL and trigger a new Vercel deploy.
+
 ## Development without Docker
 
 Backend:
