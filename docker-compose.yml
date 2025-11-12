@@ -24,12 +24,12 @@ services:
       REDIS_PASSWORD: redispass
       DEVICE: cpu
       MODEL_PATH: /app/models/migration_gnn.pth
-      AUTO_TRAIN: "true"  # Automatically train model on startup
-      TRAINING_EPOCHS: "30"  # Number of epochs for auto-training
+      AUTO_TRAIN: "true" # Automatically train model on startup
+      TRAINING_EPOCHS: "30" # Number of epochs for auto-training
     ports:
       - "5001:5000"
     volumes:
-      - ml_models:/app/models  # Persist trained models
+      - ml_models:/app/models # Persist trained models
     depends_on:
       - cache
   backend:
@@ -37,7 +37,7 @@ services:
     environment:
       PORT: 4000
       FRONTEND_ORIGIN: http://localhost:5173
-      DATABASE_URL: postgres://postgres:postgres@db:5432/worldbank
+      DATABASE_URL: "postgresql://neondb_owner:npg_x6Sk8tyCZaRW@ep-silent-union-a4vy2o2n-pooler.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
       REDIS_URL: redis://default:redispass@cache:6379
       ML_SERVICE_URL: http://ml-service:5000
     ports:
@@ -57,6 +57,3 @@ services:
 volumes:
   db_data:
   ml_models:
-
-
-
