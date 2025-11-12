@@ -1,11 +1,12 @@
 import { Router, Request, Response } from "express";
-import axios from "axios";
 
+import {
+  getIndicatorPredictionOnDemand,
+  getPopulationPredictionOnDemand,
+} from "../lib/mlOnDemand.js";
 import { getWorldBankData } from "../services/population.js";
 
 export const predictionsRouter = Router();
-
-const ML_SERVICE_URL = process.env.ML_SERVICE_URL || "http://ml-service:5000";
 
 type CountryInsight = {
   country: string;
@@ -329,51 +330,62 @@ predictionsRouter.get("/population", async (req: Request, res: Response) => {
       `[Predictions] Requesting population prediction for ${country}, years_ahead=${years_ahead}, base_year=${base_year}`
     );
 
-    // Call ML service
-    const response = await axios.get(
-      `${ML_SERVICE_URL}/api/predict/population`,
-      {
-        params: {
-          country,
-          years_ahead,
-          base_year,
-        },
-        timeout: 120000, // 2 minute timeout for ML predictions
-      }
-    );
-
-    const payload: PopulationPredictionResult = {
-      ...(response.data ?? {}),
-      country: (response.data?.country || country).toUpperCase(),
-      base_year:
-        typeof response.data?.base_year === "number"
-          ? response.data.base_year
-          : base_year ?? new Date().getFullYear() - 1,
-      target_year:
-        typeof response.data?.target_year === "number"
-          ? response.data.target_year
-          : (base_year ?? new Date().getFullYear() - 1) +
-            (years_ahead ?? 5),
-      predictions: response.data?.predictions ?? {},
-      source: "ml-service",
-      insights: response.data?.insights,
-      notes: response.data?.notes,
-    };
-
-    if (
-      !payload.predictions ||
-      Object.keys(payload.predictions).length === 0
-    ) {
-      const fallback = await buildFallbackPopulationPrediction(
+    let mlResult: any | null = null;
+    try {
+      mlResult = await getPopulationPredictionOnDemand({
         country,
-        years_ahead,
-        base_year
+        yearsAhead: years_ahead,
+        baseYear: base_year,
+      });
+    } catch (mlError: any) {
+      console.error(
+        "[Predictions] On-demand population prediction error:",
+        mlError?.message || mlError
       );
-      res.json(fallback);
-      return;
     }
 
-    res.json(payload);
+    if (mlResult && typeof mlResult === "object") {
+      const normalizedPredictions: Record<number, number> = {};
+      const entries = Object.entries(mlResult.predictions || {});
+      entries.forEach(([yearKey, value]) => {
+        const yearNum = Number(yearKey);
+        const numericValue = Number(value);
+        if (Number.isFinite(yearNum) && Number.isFinite(numericValue)) {
+          normalizedPredictions[yearNum] = numericValue;
+        }
+      });
+
+      if (Object.keys(normalizedPredictions).length > 0) {
+        const baseYearResolved = Number.isFinite(Number(mlResult.base_year))
+          ? Number(mlResult.base_year)
+          : base_year ?? new Date().getFullYear() - 1;
+        const targetYearResolved = Number.isFinite(Number(mlResult.target_year))
+          ? Number(mlResult.target_year)
+          : Math.max(
+              ...Object.keys(normalizedPredictions).map((key) => Number(key))
+            );
+
+        const payload: PopulationPredictionResult = {
+          country,
+          base_year: baseYearResolved,
+          target_year: targetYearResolved,
+          predictions: normalizedPredictions,
+          source: "ml-service",
+          notes: mlResult.notes,
+          insights: mlResult.insights,
+        };
+
+        res.json(payload);
+        return;
+      }
+    }
+
+    const fallback = await buildFallbackPopulationPrediction(
+      country,
+      years_ahead,
+      base_year
+    );
+    res.json(fallback);
   } catch (e: any) {
     console.error("[Predictions] Error:", e.message);
     try {
@@ -388,17 +400,10 @@ predictionsRouter.get("/population", async (req: Request, res: Response) => {
         "[Predictions] Population fallback failure:",
         fallbackError?.message || fallbackError
       );
-      if (e.response) {
-        res.status(e.response.status).json({
-          error: "ML service error",
-          details: e.response.data,
-        });
-      } else {
-        res.status(500).json({
-          error: "Failed to get prediction",
-          details: e?.message || "Unknown error",
-        });
-      }
+      res.status(500).json({
+        error: "Failed to get prediction",
+        details: e?.message || "Unknown error",
+      });
     }
   }
 });
@@ -408,51 +413,10 @@ predictionsRouter.get("/population", async (req: Request, res: Response) => {
  * Predict migration flows between countries
  * Body: { countries: ["USA", "MEX", "CAN"], target_year: 2025, base_year: 2020 }
  */
-predictionsRouter.post("/migration", async (req: Request, res: Response) => {
-  try {
-    const { countries, target_year, base_year } = req.body;
-
-    if (!countries || !Array.isArray(countries) || countries.length === 0) {
-      res.status(400).json({
-        error: "countries array required in request body",
-      });
-      return;
-    }
-
-    console.log(
-      `[Predictions] Requesting migration prediction for countries: ${countries.join(
-        ", "
-      )}, target_year=${target_year}, base_year=${base_year}`
-    );
-
-    // Call ML service
-    const response = await axios.post(
-      `${ML_SERVICE_URL}/api/predict/migration`,
-      {
-        countries: countries.map((c: string) => c.toUpperCase()),
-        target_year,
-        base_year,
-      },
-      {
-        timeout: 120000, // 2 minute timeout for ML predictions
-      }
-    );
-
-    res.json(response.data);
-  } catch (e: any) {
-    console.error("[Predictions] Error:", e.message);
-    if (e.response) {
-      res.status(e.response.status).json({
-        error: "ML service error",
-        details: e.response.data,
-      });
-    } else {
-      res.status(500).json({
-        error: "Failed to get prediction",
-        details: e?.message || "Unknown error",
-      });
-    }
-  }
+predictionsRouter.post("/migration", async (_req: Request, res: Response) => {
+  res.status(503).json({
+    error: "Migration predictions are not available in on-demand mode",
+  });
 });
 
 /**
@@ -492,34 +456,78 @@ predictionsRouter.get("/indicator", async (req: Request, res: Response) => {
       )}, target_year=${target_year}, base_year=${base_year}`
     );
 
-    // Call ML service
-    const response = await axios.get(
-      `${ML_SERVICE_URL}/api/predict/indicator`,
-      {
-        params: {
-          indicator,
-          countries: countries.join(","),
-          target_year,
-          base_year,
-        },
-        timeout: 120000, // 2 minute timeout for ML predictions
-      }
-    );
-
-    res.json(response.data);
-  } catch (e: any) {
-    console.error("[Predictions] Error:", e.message);
-    if (e.response) {
-      res.status(e.response.status).json({
-        error: "ML service error",
-        details: e.response.data,
+    let mlResult: any | null = null;
+    try {
+      mlResult = await getIndicatorPredictionOnDemand({
+        indicator,
+        countries,
+        targetYear: target_year,
+        baseYear: base_year,
       });
-    } else {
-      res.status(500).json({
-        error: "Failed to get prediction",
-        details: e?.message || "Unknown error",
-      });
+    } catch (mlError: any) {
+      console.error(
+        "[Predictions] On-demand indicator prediction error:",
+        mlError?.message || mlError
+      );
     }
+
+    if (mlResult && typeof mlResult === "object") {
+      const resolvedIndicator = (mlResult.indicator || indicator).toUpperCase();
+      const resolvedCountries = (mlResult.countries || countries).map((c: string) =>
+        String(c).toUpperCase()
+      );
+      const rawPredictions =
+        mlResult && typeof mlResult.predictions === "object"
+          ? mlResult.predictions
+          : {};
+
+      const normalizedPredictions: Record<string, number> = {};
+      Object.entries(rawPredictions).forEach(([countryKey, value]) => {
+        const numeric = Number(value);
+        if (Number.isFinite(numeric)) {
+          normalizedPredictions[String(countryKey).toUpperCase()] = numeric;
+        }
+      });
+
+      if (Object.keys(normalizedPredictions).length > 0) {
+        const resolvedTargetYear = Number.isFinite(Number(mlResult.target_year))
+          ? Number(mlResult.target_year)
+          : target_year ?? base_year ?? 2025;
+        const resolvedBaseYear = Number.isFinite(Number(mlResult.base_year))
+          ? Number(mlResult.base_year)
+          : base_year;
+
+        const payload: IndicatorPredictionResult = {
+          indicator: resolvedIndicator,
+          countries: resolvedCountries,
+          target_year: Number.isFinite(resolvedTargetYear)
+            ? resolvedTargetYear
+            : (typeof base_year === "number" ? base_year : 2020) + 5,
+          base_year: resolvedBaseYear,
+          predictions: normalizedPredictions,
+          source: "ml-service",
+          notes: mlResult.notes,
+          insights: mlResult.insights,
+        };
+
+        res.json(payload);
+        return;
+      }
+    }
+
+    const fallback = await buildFallbackIndicatorPrediction(
+      indicator,
+      countries,
+      target_year,
+      base_year
+    );
+    res.json(fallback);
+  } catch (e: any) {
+    console.error("[Predictions] Error:", e?.message || e);
+    res.status(500).json({
+      error: "Failed to get prediction",
+      details: e?.message || "Unknown error",
+    });
   }
 });
 
@@ -529,9 +537,9 @@ predictionsRouter.get("/indicator", async (req: Request, res: Response) => {
  * Body: { indicator: "NY.GDP.MKTP.CD", countries: ["USA", "MEX"], target_year: 2025, base_year: 2020 }
  */
 predictionsRouter.post("/indicator", async (req: Request, res: Response) => {
-  try {
-    const { indicator, countries, target_year, base_year } = req.body;
+  const { indicator, countries, target_year, base_year } = req.body ?? {};
 
+  try {
     if (!indicator) {
       res.status(400).json({ error: "indicator required in request body" });
       return;
@@ -544,67 +552,83 @@ predictionsRouter.post("/indicator", async (req: Request, res: Response) => {
       return;
     }
 
+    const normalizedIndicator = String(indicator).toUpperCase();
+    const normalizedCountries = countries.map((c: string) => String(c).toUpperCase());
+
     console.log(
-      `[Predictions] Requesting indicator prediction: ${indicator} for countries: ${countries.join(
+      `[Predictions] Requesting indicator prediction: ${normalizedIndicator} for countries: ${normalizedCountries.join(
         ", "
       )}, target_year=${target_year}, base_year=${base_year}`
     );
 
-    // Call ML service
-    const response = await axios.post(
-      `${ML_SERVICE_URL}/api/predict/indicator`,
-      {
-        indicator: indicator.toUpperCase(),
-        countries: countries.map((c: string) => c.toUpperCase()),
-        target_year,
-        base_year,
-      },
-      {
-        timeout: 120000, // 2 minute timeout for ML predictions
-      }
-    );
-
-    const normalizedTargetYearCandidate =
-      response.data?.target_year ?? target_year ?? base_year ?? 2025;
-    const resolvedTargetYear = Number(normalizedTargetYearCandidate);
-
-    const payload: IndicatorPredictionResult = {
-      ...(response.data ?? {}),
-      indicator: (response.data?.indicator || indicator).toUpperCase(),
-      countries: (response.data?.countries || countries).map((c: string) =>
-        c.toUpperCase()
-      ),
-      target_year: Number.isFinite(resolvedTargetYear)
-        ? resolvedTargetYear
-        : (typeof base_year === "number" ? base_year : 2020) + 5,
-      base_year: response.data?.base_year ?? base_year,
-      predictions: response.data?.predictions ?? {},
-      source: "ml-service",
-    };
-
-    Object.keys(payload.predictions).forEach((key) => {
-      const value = payload.predictions[key];
-      const numeric = Number(value);
-      payload.predictions[key] = Number.isFinite(numeric) ? numeric : 0;
-    });
-
-    if (
-      !payload.predictions ||
-      Object.keys(payload.predictions).length === 0
-    ) {
-      const fallback = await buildFallbackIndicatorPrediction(
-        indicator,
-        countries,
-        target_year,
-        base_year
+    let mlResult: any | null = null;
+    try {
+      mlResult = await getIndicatorPredictionOnDemand({
+        indicator: normalizedIndicator,
+        countries: normalizedCountries,
+        targetYear: target_year,
+        baseYear: base_year,
+      });
+    } catch (mlError: any) {
+      console.error(
+        "[Predictions] On-demand indicator prediction error:",
+        mlError?.message || mlError
       );
-      res.json(fallback);
-      return;
     }
 
-    res.json(payload);
+    if (mlResult && typeof mlResult === "object") {
+      const resolvedIndicator = (mlResult.indicator || normalizedIndicator).toUpperCase();
+      const resolvedCountries = (mlResult.countries || normalizedCountries).map(
+        (c: string) => String(c).toUpperCase()
+      );
+      const rawPredictions =
+        mlResult && typeof mlResult.predictions === "object"
+          ? mlResult.predictions
+          : {};
+
+      const normalizedPredictions: Record<string, number> = {};
+      Object.entries(rawPredictions).forEach(([countryKey, value]) => {
+        const numeric = Number(value);
+        if (Number.isFinite(numeric)) {
+          normalizedPredictions[String(countryKey).toUpperCase()] = numeric;
+        }
+      });
+
+      if (Object.keys(normalizedPredictions).length > 0) {
+        const resolvedTargetYear = Number.isFinite(Number(mlResult.target_year))
+          ? Number(mlResult.target_year)
+          : target_year ?? base_year ?? 2025;
+        const resolvedBaseYear = Number.isFinite(Number(mlResult.base_year))
+          ? Number(mlResult.base_year)
+          : base_year;
+
+        const payload: IndicatorPredictionResult = {
+          indicator: resolvedIndicator,
+          countries: resolvedCountries,
+          target_year: Number.isFinite(resolvedTargetYear)
+            ? resolvedTargetYear
+            : (typeof base_year === "number" ? base_year : 2020) + 5,
+          base_year: resolvedBaseYear,
+          predictions: normalizedPredictions,
+          source: "ml-service",
+          notes: mlResult.notes,
+          insights: mlResult.insights,
+        };
+
+        res.json(payload);
+        return;
+      }
+    }
+
+    const fallback = await buildFallbackIndicatorPrediction(
+      normalizedIndicator,
+      normalizedCountries,
+      target_year,
+      base_year
+    );
+    res.json(fallback);
   } catch (e: any) {
-    console.error("[Predictions] Error:", e.message);
+    console.error("[Predictions] Error:", e?.message || e);
     try {
       const fallback = await buildFallbackIndicatorPrediction(
         indicator,
@@ -618,17 +642,10 @@ predictionsRouter.post("/indicator", async (req: Request, res: Response) => {
         "[Predictions] Fallback failure:",
         fallbackError?.message || fallbackError
       );
-      if (e.response) {
-        res.status(e.response.status).json({
-          error: "ML service error",
-          details: e.response.data,
-        });
-      } else {
-        res.status(500).json({
-          error: "Failed to get prediction",
-          details: e?.message || "Unknown error",
-        });
-      }
+      res.status(500).json({
+        error: "Failed to get prediction",
+        details: e?.message || "Unknown error",
+      });
     }
   }
 });
