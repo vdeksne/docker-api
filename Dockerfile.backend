@@ -14,10 +14,11 @@ RUN npm run build
 RUN apt-get update && apt-get install -y --no-install-recommends python3 python3-pip && \
     pip3 install --break-system-packages --no-cache-dir \
       --index-url https://download.pytorch.org/whl/cpu \
-      torch==2.9.0+cpu \
-      typing-extensions==4.15.0 \
-      filelock==3.19.1 && \
-    pip3 install --break-system-packages --no-cache-dir numpy pandas requests && \
+      torch==2.9.0+cpu && \
+    pip3 install --break-system-packages --no-cache-dir \
+      typing_extensions==4.15.0 \
+      filelock==3.19.1 \
+      numpy pandas requests && \
     rm -rf /var/lib/apt/lists/*
 
 FROM node:20-bookworm
@@ -40,10 +41,11 @@ COPY ml-service/src/migration_data.py ./ml/migration_data.py
 RUN apt-get update && apt-get install -y --no-install-recommends python3 python3-pip && \
     pip3 install --break-system-packages --no-cache-dir \
       --index-url https://download.pytorch.org/whl/cpu \
-      torch==2.9.0+cpu \
-      typing-extensions==4.15.0 \
-      filelock==3.19.1 && \
-    pip3 install --break-system-packages --no-cache-dir numpy pandas requests && \
+      torch==2.9.0+cpu && \
+    pip3 install --break-system-packages --no-cache-dir \
+      typing_extensions==4.15.0 \
+      filelock==3.19.1 \
+      numpy pandas requests && \
     rm -rf /var/lib/apt/lists/*
 
 ENV NODE_ENV=production \
