@@ -1,0 +1,134 @@
+.layout {
+  display: flex;
+  gap: 32px;
+  align-items: flex-start;
+}
+
+.sidebar {
+  width: 280px;
+  background: rgba(0, 1, 1, 0.85);
+  border: 1px solid rgba(94, 160, 232, 0.35);
+  border-radius: 18px;
+  padding: 22px 20px;
+  box-shadow: 0 14px 36px rgba(1, 6, 14, 0.45);
+  position: sticky;
+  top: 24px;
+  max-height: calc(100vh - 48px);
+  overflow-y: auto;
+}
+
+.sidebarHeader {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.sidebarTitle {
+  font-size: 18px;
+  font-weight: 700;
+  color: #f2f6ff;
+  font-family: "Lato", sans-serif;
+}
+
+.sidebarSubtitle {
+  font-size: 12px;
+  color: rgba(182, 206, 255, 0.75);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  font-family: "Lato", sans-serif;
+}
+
+.indicatorList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.indicatorItem {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: rgba(10, 26, 46, 0.55);
+  border: 1px solid rgba(116, 178, 255, 0.18);
+  color: #dce7ff;
+  cursor: pointer;
+  transition: transform 0.15s ease, background 0.15s ease,
+    border-color 0.15s ease;
+}
+
+.indicatorItem:hover {
+  transform: translateY(-1px);
+  background: rgba(18, 42, 76, 0.65);
+  border-color: rgba(122, 188, 255, 0.4);
+}
+
+.indicatorItemActive {
+  background: rgba(18, 68, 132, 0.75);
+  border: 1px solid rgba(122, 188, 255, 0.7);
+  box-shadow: 0 10px 24px rgba(18, 68, 132, 0.35);
+}
+
+.indicatorName {
+  font-size: 13.5px;
+  font-weight: 600;
+  line-height: 1.4;
+  font-family: "Lato", sans-serif;
+}
+
+.indicatorMeta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+}
+
+.indicatorCode {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: rgba(182, 206, 255, 0.75);
+  text-transform: uppercase;
+  font-family: "Lato", sans-serif;
+}
+
+.indicatorAction {
+  font-size: 11px;
+  font-weight: 700;
+  color: #8cb3ff;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  font-family: "Lato", sans-serif;
+}
+
+.indicatorDescription {
+  font-size: 11.5px;
+  color: rgba(210, 226, 255, 0.7);
+  margin-top: 18px;
+  line-height: 1.5;
+  font-family: "Lato", sans-serif;
+}
+
+.rangePill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+  padding: 6px 10px;
+  background: rgba(10, 40, 78, 0.65);
+  border: 1px solid rgba(122, 188, 255, 0.3);
+  border-radius: 999px;
+  color: #b6d4ff;
+  font-size: 11px;
+  letter-spacing: 0.03em;
+  font-weight: 600;
+  font-family: "Lato", sans-serif;
+}
+
+.mainContent {
+  flex: 1;
+  min-width: 0;
+}
+

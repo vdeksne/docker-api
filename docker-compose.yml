@@ -1,0 +1,62 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: worldbank
+    ports:
+      - "5432:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+  cache:
+    image: redis:7-alpine
+    command: ["redis-server", "--requirepass", "redispass"]
+    # For AWS ElastiCache, replace with:
+    # environment:
+    #   REDIS_HOST: <your-elasticache-endpoint>
+    #   REDIS_PORT: 6379
+  ml-service:
+    build: ./ml-service
+    environment:
+      REDIS_HOST: cache
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: redispass
+      DEVICE: cpu
+      MODEL_PATH: /app/models/migration_gnn.pth
+      AUTO_TRAIN: "true"  # Automatically train model on startup
+      TRAINING_EPOCHS: "30"  # Number of epochs for auto-training
+    ports:
+      - "5001:5000"
+    volumes:
+      - ml_models:/app/models  # Persist trained models
+    depends_on:
+      - cache
+  backend:
+    build: ./backend
+    environment:
+      PORT: 4000
+      FRONTEND_ORIGIN: http://localhost:5173
+      DATABASE_URL: postgres://postgres:postgres@db:5432/worldbank
+      REDIS_URL: redis://default:redispass@cache:6379
+      ML_SERVICE_URL: http://ml-service:5000
+    ports:
+      - "4000:4000"
+    depends_on:
+      - db
+      - cache
+      - ml-service
+  frontend:
+    build: ./frontend
+    environment:
+      VITE_BACKEND_URL: http://localhost:4000
+    ports:
+      - "5173:80"
+    depends_on:
+      - backend
+volumes:
+  db_data:
+  ml_models:
+
+
+

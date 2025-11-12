@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <title>World Bank Data Comparison</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      body {
+        font-family: "Lato", sans-serif;
+        background: #000101;
+        color: #e3f2fd;
+        min-height: 100vh;
+      }
+      #root {
+        min-height: 100vh;
+      }
+      select option {
+        background: #0a1929;
+        color: #e3f2fd;
+      }
+      input::placeholder {
+        color: rgba(227, 242, 253, 0.5);
+      }
+      input:focus,
+      select:focus {
+        border-color: rgba(144, 202, 249, 0.6) !important;
+        box-shadow: 0 0 0 2px rgba(144, 202, 249, 0.2);
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
