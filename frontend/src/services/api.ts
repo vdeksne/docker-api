@@ -1,5 +1,10 @@
+const DEFAULT_API_BASE =
+  typeof window !== "undefined" && window.location.hostname !== "localhost"
+    ? "http://139.59.138.164:8081"
+    : "http://localhost:4000";
+
 const API_BASE =
-  (import.meta as any).env.VITE_BACKEND_URL || "http://localhost:4000";
+  (import.meta as any).env?.VITE_BACKEND_URL?.trim() || DEFAULT_API_BASE;
 
 export type CountryInsight = {
   country: string;
