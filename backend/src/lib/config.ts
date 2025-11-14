@@ -18,9 +18,15 @@ const isProduction = process.env.NODE_ENV === 'production';
 const defaultDbHost = isProduction ? 'db' : 'localhost';
 const defaultRedisHost = isProduction ? 'cache' : 'localhost';
 
+const useNeon = process.env.USE_NEON === 'true';
+
 const defaultDatabaseUrl =
   process.env.DATABASE_URL ||
-  (isProduction ? 'postgres://postgres:postgres@db:5432/worldbank' : undefined);
+  (useNeon
+    ? 'postgresql://neondb_owner:npg_x6Sk8tyCZaRW@ep-silent-union-a4vy2o2n-pooler.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require'
+    : isProduction
+      ? 'postgres://postgres:postgres@db:5432/worldbank'
+      : 'postgres://postgres:postgres@localhost:5432/worldbank');
 
 export function getConfig(): AppConfig {
   return {
@@ -34,7 +40,9 @@ export function getConfig(): AppConfig {
     PGPASSWORD: process.env.PGPASSWORD || (isProduction ? 'postgres' : undefined),
     REDIS_URL:
       process.env.REDIS_URL ||
-      (isProduction ? 'redis://default:redispass@cache:6379' : undefined),
+      (isProduction
+        ? 'redis://default:redispass@redis-12760.crce175.eu-north-1-1.ec2.cloud.redislabs.com:12760'
+        : 'redis://default:redispass@localhost:6379'),
     REDIS_HOST: process.env.REDIS_HOST || defaultRedisHost,
     REDIS_PORT: process.env.REDIS_PORT || '6379',
     REDIS_PASSWORD: process.env.REDIS_PASSWORD || (isProduction ? 'redispass' : undefined),

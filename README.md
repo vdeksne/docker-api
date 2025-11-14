@@ -87,6 +87,8 @@ Set one of:
 - Database: Neon serverless Postgres (project `docker-api`).
 - Redis: single-node container on the droplet (`redis://default:redispass@localhost:6379`).
 
+For Docker/local environments the backend falls back to the internal Postgres service (`postgres://postgres:postgres@db:5432/worldbank`) and Redis service (`redis://default:redispass@cache:6379`). Set `DATABASE_URL`, `REDIS_URL`, or `USE_NEON=true` explicitly when you want the API to talk to Neon/RediLabs instead.
+
 ### Rebuild & redeploy backend
 
 ```bash
@@ -99,12 +101,13 @@ docker run -d --name docker-api \
   -p 8081:4000 \
   -e NODE_ENV=production \
   -e PORT=4000 \
+  -e USE_NEON=true \
   -e DATABASE_URL="postgresql://neondb_owner:npg_x6Sk8tyCZaRW@ep-silent-union-a4vy2o2n-pooler.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require" \
+  -e REDIS_URL="redis://default:redispass@redis-12760.crce175.eu-north-1-1.ec2.cloud.redislabs.com:12760" \
   -e PYTHON_EXECUTABLE=python3 \
   -e ML_SCRIPT_PATH=/app/ml/run_prediction.py \
   -e ML_CACHE_TTL_MS=300000 \
   -e FRONTEND_ORIGIN="https://frontend-nine-theta-37.vercel.app" \
-  -e REDIS_URL="redis://default:redispass@localhost:6379" \
   wb-backend:latest
 ```
 

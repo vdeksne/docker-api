@@ -5,6 +5,8 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: worldbank
+      PGSSL: "true"
+
     ports:
       - "5432:5432"
     volumes:
@@ -37,8 +39,8 @@ services:
     environment:
       PORT: 4000
       FRONTEND_ORIGIN: http://localhost:5173
-      DATABASE_URL: "postgresql://neondb_owner:npg_x6Sk8tyCZaRW@ep-silent-union-a4vy2o2n-pooler.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
-      REDIS_URL: redis://default:redispass@cache:6379
+      DATABASE_URL: postgres://postgres:postgres@db:5432/worldbank
+      REDIS_URL: redis://default:redispass@redis-12760.crce175.eu-north-1-1.ec2.cloud.redislabs.com:12760
       ML_SERVICE_URL: http://ml-service:5000
     ports:
       - "4000:4000"
@@ -49,7 +51,7 @@ services:
   frontend:
     build: ./frontend
     environment:
-      VITE_BACKEND_URL: http://localhost:4000
+      VITE_BACKEND_URL: https://139-59-138-164.sslip.io
     ports:
       - "5173:80"
     depends_on:
