@@ -1,6 +1,6 @@
 const DEFAULT_API_BASE =
   typeof window !== "undefined" && window.location.hostname !== "localhost"
-    ? "http://139.59.138.164:8081"
+    ? "https://139-59-138-164.sslip.io"
     : "http://localhost:4000";
 
 const API_BASE =

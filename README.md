@@ -112,6 +112,9 @@ docker run -d --name docker-api \
 ```
 
 Health check: `curl http://139.59.138.164:8081/api/health`
+docker ps
+curl http://127.0.0.1:8081/api/health
+curl https://139-59-138-164.sslip.io/api/health
 
 ### Frontend environment
 
