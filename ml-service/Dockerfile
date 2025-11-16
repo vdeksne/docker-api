@@ -10,7 +10,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 COPY requirements.txt .
 RUN pip install --upgrade pip \
-    && pip wheel --no-deps \
+    && pip wheel \
        --extra-index-url https://download.pytorch.org/whl/cpu \
        --wheel-dir /wheels \
        -r requirements.txt
@@ -30,7 +30,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /app
 COPY requirements.txt .
 COPY --from=builder /wheels /wheels
-RUN pip install --no-cache-dir --no-index --find-links=/wheels -r requirements.txt \
+RUN pip install --no-cache-dir --find-links=/wheels -r requirements.txt \
     && rm -rf /wheels
 
 COPY src/ ./src/
