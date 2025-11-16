@@ -6,40 +6,22 @@ React frontend + Express (Node.js, TypeScript) backend with Postgres database an
 
 ## About the App
 
-This application allows you to compare World Bank data across different countries and indicators. You can visualize historical trends and get AI-powered predictions for future values.
-
-### AI-Powered Predictions
-
-The app includes an AI-powered prediction system using Graph Neural Networks (GNN) that:
-
-- **Automatically trains** on historical World Bank data (1990-2023)
-- **Prioritizes Baltic countries** (Latvia, Lithuania, Estonia) for enhanced accuracy
-- **Predicts future values** for any World Bank indicator
-- **Uses 10+ years of historical data** for Baltic countries to improve prediction accuracy
-- **Trains in the background** so the API is always available
-
-The ML model is specifically optimized for Baltic countries (LVA, EST, LTU) with:
-
-- Extended historical data collection (10 years vs 5 for other countries)
-- Weighted recent years for better trend analysis
-- Enhanced fallback mechanisms for missing data
-- Automatic training on startup with 26 countries and 34 years of data
+The UI shows World Bank data for any supported country/indicator pair and lets you compare trends over time. The backend also exposes a prediction endpoint that uses a graph model trained on historical data, with some extra weight on Baltic countries (LVA, EST, LTU) because they are the primary focus of this project.
 
 ### Features
 
-- Compare multiple countries and indicators simultaneously
-- Visualize data with interactive charts
-- Generate AI predictions for future indicator values
-- Support for all World Bank indicators (population, GDP, life expectancy, etc.)
-- Automatic data caching and persistence
+- Compare multiple countries/indicators side by side
+- Chart historical data pulled from the World Bank API
+- Request population or generic indicator predictions
+- Cache responses in Redis so repeated calls stay fast
 
 ## Services
 
-- Frontend: React + Vite (served via Nginx in production container)
+- Frontend: React + Vite (served by Nginx in production)
 - Backend: Express + TypeScript
-- Database: Postgres (stores countries, indicators, observations)
-- Cache: Redis (can point to AWS ElastiCache in production)
-- ML Service: FastAPI + PyTorch Geometric (GNN model for predictions)
+- Database: Postgres (observations, indicators, metadata)
+- Cache: Redis (local container for dev; Redis Labs/Elasticache in prod)
+- ML service: FastAPI + PyTorch Geometric (prediction jobs)
 
 ## World Bank API
 
@@ -80,14 +62,41 @@ Set one of:
 - `DATABASE_URL=postgres://<user>:<pass>@<host>:<port>/<db>`
 - Or `PGHOST`, `PGPORT`, `PGDATABASE`, `PGUSER`, `PGPASSWORD`
 
-## Production deployment
+## Production deployment (current setup)
 
-- Frontend: deployed on Vercel at [https://frontend-nine-theta-37.vercel.app/](https://frontend-nine-theta-37.vercel.app/).
-- Backend: Docker container on a DigitalOcean droplet exposing `http://139.59.138.164:8081`.
-- Database: Neon serverless Postgres (project `docker-api`).
-- Redis: single-node container on the droplet (`redis://default:redispass@localhost:6379`).
+- Frontend: Vercel `https://frontend-nine-theta-37.vercel.app/`
+- Backend: Docker container on DigitalOcean droplet (port 8081 -> 4000)
+- Database: Neon serverless Postgres
+- Redis: Redis Labs instance (`redis://default:…@redis-12760…:12760`)
 
-For Docker/local environments the backend falls back to the internal Postgres service (`postgres://postgres:postgres@db:5432/worldbank`) and Redis service (`redis://default:redispass@cache:6379`). Set `DATABASE_URL`, `REDIS_URL`, or `USE_NEON=true` explicitly when you want the API to talk to Neon/RediLabs instead.
+When running with `docker compose` locally, the backend defaults to the internal Postgres (`postgres://postgres:postgres@db:5432/worldbank`) and Redis (`redis://default:redispass@cache:6379`). Set `DATABASE_URL`, `REDIS_URL`, or `USE_NEON=true` to point at the hosted services instead. The backend discovers the model API via `ML_SERVICE_URL` (defaults to `http://ml-service:5000` when using Compose).
+
+### Build & run the ML service (DigitalOcean)
+
+```bash
+ssh root@139.59.138.164
+cd /root/docker-api/ml-service
+git pull
+docker build -t wb-ml-service:latest .
+docker rm -f ml-service || true
+docker run -d --name ml-service \
+  --restart unless-stopped \
+  -p 5001:5000 \
+  -e REDIS_URL="redis://default:beZtcrGSW1xiwb7XgD3A6AiZLj70pmAU@redis-12760.crce175.eu-north-1-1.ec2.cloud.redislabs.com:12760" \
+  -e DEVICE=cpu \
+  -e AUTO_TRAIN=true \
+  wb-ml-service:latest
+```
+
+Health checks:
+
+```bash
+docker ps
+docker logs -f ml-service
+curl http://127.0.0.1:5001/health
+```
+
+To keep the service private, create a Docker network (for example `docker network create wb-prod`) and start both containers with `--network wb-prod`. Then you can drop `-p 5001:5000` and the backend can call `http://ml-service:5000`.
 
 ### Rebuild & redeploy backend
 
@@ -98,23 +107,26 @@ git pull
 docker build -f Dockerfile.backend -t wb-backend:latest .
 docker rm -f docker-api || true
 docker run -d --name docker-api \
+  --network wb-prod \
   -p 8081:4000 \
   -e NODE_ENV=production \
   -e PORT=4000 \
   -e USE_NEON=true \
   -e DATABASE_URL="postgresql://neondb_owner:npg_x6Sk8tyCZaRW@ep-silent-union-a4vy2o2n-pooler.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require" \
-  -e REDIS_URL="redis://default:redispass@redis-12760.crce175.eu-north-1-1.ec2.cloud.redislabs.com:12760" \
+  -e REDIS_URL="redis://default:beZtcrGSW1xiwb7XgD3A6AiZLj70pmAU@redis-12760.crce175.eu-north-1-1.ec2.cloud.redislabs.com:12760" \
   -e PYTHON_EXECUTABLE=python3 \
   -e ML_SCRIPT_PATH=/app/ml/run_prediction.py \
+  -e ML_SERVICE_URL="http://ml-service:5000" \
   -e ML_CACHE_TTL_MS=300000 \
   -e FRONTEND_ORIGIN="https://frontend-nine-theta-37.vercel.app" \
   wb-backend:latest
 ```
 
-Health check: `curl http://139.59.138.164:8081/api/health`
-docker ps
-curl http://127.0.0.1:8081/api/health
-curl https://139-59-138-164.sslip.io/api/health
+Useful checks once it’s running:
+
+- `docker ps`
+- `curl http://127.0.0.1:8081/api/health`
+- `curl https://139-59-138-164.sslip.io/api/health` (fronted by Nginx/Let’s Encrypt)
 
 ### Frontend environment
 

@@ -40,7 +40,7 @@ services:
       PORT: 4000
       FRONTEND_ORIGIN: http://localhost:5173
       DATABASE_URL: postgres://postgres:postgres@db:5432/worldbank
-      REDIS_URL: redis://default:redispass@redis-12760.crce175.eu-north-1-1.ec2.cloud.redislabs.com:12760
+      REDIS_URL=redis://default:beZtcrGSW1xiwb7XgD3A6AiZLj70pmAU@redis-12760.crce175.eu-north-1-1.ec2.cloud.redislabs.com:12760
       ML_SERVICE_URL: http://ml-service:5000
     ports:
       - "4000:4000"
