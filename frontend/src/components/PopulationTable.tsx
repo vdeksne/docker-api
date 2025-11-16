@@ -28,8 +28,8 @@ function toFiniteNumber(value: unknown): number | null {
   return Number.isFinite(num) ? num : null;
 }
 
-function isNonZeroNumber(value: number | null): value is number {
-  return value !== null && value !== 0;
+function isValidNumber(value: number | null): value is number {
+  return value !== null && Number.isFinite(value);
 }
 
 function getMinMax(arr: number[]): [number, number] {
@@ -239,13 +239,14 @@ export function PopulationTable({
         .map((r) => {
           const cleanedValue = toFiniteNumber(r.value);
           const cleanedYear = toFiniteNumber(r.year);
-          if (!isNonZeroNumber(cleanedValue) || cleanedYear === null) {
+          // Allow zero values - only filter out null/undefined/NaN
+          if (!isValidNumber(cleanedValue) || cleanedYear === null) {
             return null;
           }
           return { year: cleanedYear, value: cleanedValue as number };
         })
         .filter((r): r is { year: number; value: number } => r !== null)
-        .sort((a, b) => a!.year - b!.year);
+        .sort((a, b) => a.year - b.year);
       return {
         country: cd.country,
         indicator: cd.indicator,
@@ -307,7 +308,8 @@ export function PopulationTable({
       if (isFiniteNumber(r.year)) {
         allYears.add(r.year);
       }
-      if (isFiniteNumber(r.value) && r.value !== 0) {
+      // Include zero values in scale calculation
+      if (isFiniteNumber(r.value)) {
         allValues.push(r.value);
       }
     });
@@ -321,7 +323,8 @@ export function PopulationTable({
       if (yearNum !== null) {
         allYears.add(yearNum);
       }
-      if (valueNum !== null && valueNum !== 0) {
+      // Include zero values in scale calculation
+      if (valueNum !== null && Number.isFinite(valueNum)) {
         allValues.push(valueNum);
       }
     });
@@ -331,7 +334,21 @@ export function PopulationTable({
     .filter((year) => Number.isFinite(year))
     .sort((a, b) => a - b);
   const [minYear, maxYear] = getMinMax(years);
-  const [minValue, maxValue] = getMinMax(allValues);
+
+  // Calculate value range - handle edge cases
+  let [minValue, maxValue] = getMinMax(allValues);
+
+  // If all values are zero or very close to zero, set a reasonable range
+  if (Math.abs(maxValue - minValue) < 0.0001) {
+    if (maxValue === 0) {
+      minValue = -1;
+      maxValue = 1;
+    } else {
+      const center = (minValue + maxValue) / 2;
+      minValue = center - Math.max(1, Math.abs(center) * 0.1);
+      maxValue = center + Math.max(1, Math.abs(center) * 0.1);
+    }
+  }
 
   const width = containerWidth - (isMobile ? 24 : 48); // Account for padding
   const height = isMobile ? 350 : 500; // Smaller height on mobile
@@ -340,14 +357,21 @@ export function PopulationTable({
   const paddingTop = isMobile ? 40 : 50;
   const paddingRight = isMobile ? 30 : 60;
 
-  const x = (year: number) =>
-    paddingLeft +
-    ((year - minYear) / (maxYear - minYear || 1)) *
-      (width - paddingLeft - paddingRight);
-  const y = (pop: number) =>
-    paddingTop +
-    (1 - (pop - minValue) / (maxValue - minValue || 1)) *
-      (height - paddingBottom - paddingTop);
+  const x = (year: number) => {
+    const yearRange = maxYear - minYear || 1;
+    const normalizedYear = (year - minYear) / yearRange;
+    return paddingLeft + normalizedYear * (width - paddingLeft - paddingRight);
+  };
+
+  const y = (pop: number) => {
+    const valueRange = maxValue - minValue || 1;
+    const normalizedValue = (pop - minValue) / valueRange;
+    // Clamp normalized value to [0, 1] to prevent rendering outside bounds
+    const clampedValue = Math.max(0, Math.min(1, normalizedValue));
+    return (
+      paddingTop + (1 - clampedValue) * (height - paddingBottom - paddingTop)
+    );
+  };
 
   const xTicks =
     years.length > 18
@@ -395,7 +419,12 @@ export function PopulationTable({
         .sort((a, b) => a.year - b.year);
 
       predictionYears.forEach((predPoint) => {
-        if (predPoint.year > lastPoint.year && predPoint.value !== 0) {
+        // Allow zero values in predictions - only check year ordering
+        if (
+          predPoint.year > lastPoint.year &&
+          predPoint.value !== null &&
+          Number.isFinite(predPoint.value)
+        ) {
           predictionPoints.push({
             year: predPoint.year,
             value: predPoint.value,
@@ -425,7 +454,8 @@ export function PopulationTable({
     });
 
     d.predictionPoints.forEach((p) => {
-      if (p.value !== 0) {
+      // Allow zero values in table - only check if value is valid
+      if (p.value !== null && Number.isFinite(p.value)) {
         valueMap.set(p.year, {
           value: p.value,
           isPrediction: true,
@@ -539,8 +569,16 @@ export function PopulationTable({
       const prevYear = sortedYears[i - 1];
       const current = series.values.get(year);
       const previous = series.values.get(prevYear);
-      if (!current || !previous || previous.value === 0) continue;
-      const change = (current.value - previous.value) / previous.value;
+      if (!current || !previous) continue;
+
+      // Handle zero values: if previous is zero, use absolute change instead of percentage
+      let change: number;
+      if (previous.value === 0) {
+        // If previous was zero, use absolute change normalized by a small value
+        change = current.value !== 0 ? (current.value > 0 ? 1 : -1) : 0;
+      } else {
+        change = (current.value - previous.value) / previous.value;
+      }
       data.push({ year, change });
     }
     return {
@@ -609,25 +647,48 @@ export function PopulationTable({
 
   const countryPaths = processedData
     .map((d) => {
-      const segments = d.sorted
-        .map((r, i) => {
-          const X = x(r.year);
-          const Y = y(r.value as number);
-          if (!Number.isFinite(X) || !Number.isFinite(Y)) {
-            return null;
-          }
-          return `${i === 0 ? "M" : "L"}${X},${Y}`;
-        })
-        .filter((segment): segment is string => segment !== null);
+      // Process all points and generate path segments, connecting consecutive valid points
+      const pathSegments: string[] = [];
+      let lastValidPoint: { x: number; y: number } | null = null;
 
-      if (segments.length === 0) {
+      for (const point of d.sorted) {
+        const X = x(point.year);
+        const Y = y(point.value as number);
+
+        // Check if this point is valid
+        if (Number.isFinite(X) && Number.isFinite(Y)) {
+          if (lastValidPoint === null) {
+            // First valid point - start the path
+            pathSegments.push(`M ${X},${Y}`);
+          } else {
+            // Connect to previous valid point
+            pathSegments.push(`L ${X},${Y}`);
+          }
+          lastValidPoint = { x: X, y: Y };
+        }
+        // If point is invalid, we skip it but don't break the path
+        // The next valid point will continue from the last valid point
+      }
+
+      if (pathSegments.length === 0) {
         return null;
+      }
+
+      // If only one point, create a small visible line
+      if (pathSegments.length === 1 && lastValidPoint) {
+        const { x: X, y: Y } = lastValidPoint;
+        return {
+          country: d.country,
+          indicator: d.indicator,
+          path: `M ${X - 2},${Y} L ${X + 2},${Y}`,
+          color: d.color,
+        };
       }
 
       return {
         country: d.country,
         indicator: d.indicator,
-        path: segments.join(" "),
+        path: pathSegments.join(" "),
         color: d.color,
       };
     })
@@ -702,17 +763,29 @@ export function PopulationTable({
     <div
       style={{
         marginTop: isMobile ? 20 : 32,
-        background: "rgba(25, 118, 210, 0.08)",
-        border: "1px solid rgba(144, 202, 249, 0.12)",
-        borderRadius: 16,
+        background:
+          "linear-gradient(135deg, rgba(25, 118, 210, 0.12) 0%, rgba(13, 71, 161, 0.08) 100%)",
+        border: "1px solid rgba(144, 202, 249, 0.15)",
+        borderRadius: 20,
         padding: isMobile ? "20px 12px 16px 12px" : "32px 24px 24px 24px",
-        boxShadow: "0 8px 32px rgba(0, 0, 0, 0.3)",
+        boxShadow:
+          "0 12px 48px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(144, 202, 249, 0.1) inset",
         width: "100%",
         maxWidth: "100%",
         marginLeft: "auto",
         marginRight: "auto",
         fontFamily: "'Lato', sans-serif",
         overflowX: "auto" /* Allow horizontal scroll on mobile */,
+        animation: "fadeIn 1s ease-out",
+        transition: "all 0.3s ease",
+      }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.boxShadow =
+          "0 16px 64px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(144, 202, 249, 0.2) inset";
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.boxShadow =
+          "0 12px 48px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(144, 202, 249, 0.1) inset";
       }}
     >
       <div
@@ -1013,9 +1086,9 @@ export function PopulationTable({
               />
             ))}
             {/* Dots for historical data */}
-            {processedData.map((d) =>
+            {processedData.map((d, dataIdx) =>
               d.sorted
-                .map((r) => {
+                .map((r, pointIdx) => {
                   const dotX = x(r.year);
                   const dotY = y(r.value as number);
                   if (!Number.isFinite(dotX) || !Number.isFinite(dotY)) {
@@ -1033,9 +1106,15 @@ export function PopulationTable({
                         shapeRendering="geometricPrecision"
                         style={{
                           cursor: "pointer",
-                          transition: "r 0.15s cubic-bezier(.8,2,.5,.9)",
+                          transition:
+                            "r 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease",
+                          opacity: 0,
+                          animation: `fadeIn 0.6s ease-out ${
+                            dataIdx * 0.1 + pointIdx * 0.02 + 1.5
+                          }s forwards`,
                         }}
                         onMouseEnter={(e) => {
+                          e.currentTarget.setAttribute("r", "12");
                           const rect = e.currentTarget.getBoundingClientRect();
                           const svgRect = (
                             e.currentTarget.ownerSVGElement as SVGSVGElement
@@ -1071,9 +1150,9 @@ export function PopulationTable({
                 .filter((node): node is JSX.Element => node !== null)
             )}
             {/* Prediction dots */}
-            {predictionPaths.map((pp) =>
+            {predictionPaths.map((pp, pathIdx) =>
               pp.predictionPoints
-                .map((p) => {
+                .map((p, pointIdx) => {
                   const dotX = xWithPred(p.year);
                   const dotY = yWithPred(p.value);
                   if (!Number.isFinite(dotX) || !Number.isFinite(dotY)) {
@@ -1092,8 +1171,14 @@ export function PopulationTable({
                         shapeRendering="geometricPrecision"
                         style={{
                           cursor: "pointer",
+                          transition: "r 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                          opacity: 0,
+                          animation: `fadeIn 0.6s ease-out ${
+                            pathIdx * 0.1 + pointIdx * 0.02 + 2
+                          }s forwards`,
                         }}
                         onMouseEnter={(e) => {
+                          e.currentTarget.setAttribute("r", "10");
                           const rect = e.currentTarget.getBoundingClientRect();
                           const svgRect = (
                             e.currentTarget.ownerSVGElement as SVGSVGElement
@@ -1122,7 +1207,10 @@ export function PopulationTable({
                               )?.indicatorName || "Prediction",
                           });
                         }}
-                        onMouseLeave={() => setTooltip(null)}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.setAttribute("r", "7");
+                          setTooltip(null);
+                        }}
                         tabIndex={0}
                         aria-label={`${pp.country} - Year ${
                           p.year

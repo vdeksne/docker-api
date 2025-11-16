@@ -220,7 +220,7 @@ const COUNTRIES_LIST = [
   { code: "TKM", name: "Turkmenistan" },
   { code: "TUV", name: "Tuvalu" },
   { code: "UGA", name: "Uganda" },
-  { code: "UKR", name: "Ukraine" },
+  { code: "UKR", name: "Latvia" },
   { code: "ARE", name: "United Arab Emirates" },
   { code: "GBR", name: "United Kingdom" },
   { code: "USA", name: "United States" },
@@ -235,10 +235,10 @@ const COUNTRIES_LIST = [
 ];
 
 export function App() {
-  const [newCountry, setNewCountry] = useState("USA");
+  const [newCountry, setNewCountry] = useState("LVA");
   const [indicator, setIndicator] = useState("SP.POP.TOTL");
   const [from, setFrom] = useState<number | "">(1960);
-  const [to, setTo] = useState<number | "">(2020);
+  const [to, setTo] = useState<number | "">(2025);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [countriesData, setCountriesData] = useState<CountryData[]>([]);
@@ -286,7 +286,7 @@ export function App() {
             country,
             indicator: defaultIndicator,
             from: 1960, // Use explicit values instead of state
-            to: 2020,
+            to: 2025,
           })
         );
         const results = await Promise.all(promises);
@@ -565,18 +565,35 @@ export function App() {
         background: "#000101",
       }}
     >
-      <h1
-        style={{
-          fontSize: isMobile ? "24px" : "36px",
-          fontWeight: 700,
-          color: "#e3f2fd",
-          marginBottom: isMobile ? "20px" : "32px",
-          letterSpacing: "-0.5px",
-          fontFamily: "'Lato', sans-serif",
-        }}
-      >
-        World Bank Data Comparison
-      </h1>
+      <div style={{ marginBottom: isMobile ? "32px" : "48px" }}>
+        <h1
+          className={layoutStyles.heroTitle}
+          style={{
+            fontSize: isMobile ? "32px" : "56px",
+            fontWeight: 800,
+            marginBottom: isMobile ? "16px" : "24px",
+            letterSpacing: "-1.5px",
+            fontFamily: "'Lato', sans-serif",
+            lineHeight: 1.1,
+          }}
+        >
+          World Bank Data Explorer
+        </h1>
+        <p
+          className={layoutStyles.heroIntro}
+          style={{
+            fontSize: isMobile ? "15px" : "18px",
+            color: "rgba(227, 242, 253, 0.85)",
+            fontWeight: 400,
+            fontFamily: "'Lato', sans-serif",
+            margin: 0,
+          }}
+        >
+          Explore global development indicators with interactive visualizations
+          and AI-powered predictions. Compare countries, analyze trends, and
+          forecast future values using advanced machine learning models.
+        </p>
+      </div>
       <div className={layoutStyles.layout}>
         <aside className={layoutStyles.sidebar}>
           <div className={layoutStyles.sidebarHeader}>
@@ -586,9 +603,9 @@ export function App() {
             </span>
           </div>
           <p className={layoutStyles.indicatorDescription}>
-            Jump straight to any indicator with Latvia’s historical series
-            preloaded. Clicking replaces Latvia’s line while keeping any other
-            countries you’ve added.
+            Jump straight to any indicator with Latvia's historical series
+            preloaded. Clicking replaces Latvia's line while keeping any other
+            countries you've added.
           </p>
           <div className={layoutStyles.rangePill}>
             <span>LVA</span>
@@ -622,6 +639,7 @@ export function App() {
         <div className={layoutStyles.mainContent}>
           <form
             onSubmit={onAddCountry}
+            className={layoutStyles.fadeInUp}
             style={{
               display: "flex",
               gap: isMobile ? 12 : 16,
@@ -629,10 +647,22 @@ export function App() {
               flexWrap: "wrap",
               marginBottom: 24,
               padding: isMobile ? "16px" : "24px",
-              background: "rgba(25, 118, 210, 0.08)",
-              borderRadius: 12,
-              border: "1px solid rgba(144, 202, 249, 0.12)",
+              background:
+                "linear-gradient(135deg, rgba(25, 118, 210, 0.12) 0%, rgba(13, 71, 161, 0.08) 100%)",
+              borderRadius: 16,
+              border: "1px solid rgba(144, 202, 249, 0.15)",
               fontFamily: "'Lato', sans-serif",
+              boxShadow:
+                "0 8px 32px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(144, 202, 249, 0.1) inset",
+              transition: "all 0.3s ease",
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.boxShadow =
+                "0 12px 48px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(144, 202, 249, 0.2) inset";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.boxShadow =
+                "0 8px 32px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(144, 202, 249, 0.1) inset";
             }}
           >
             <label
@@ -763,7 +793,7 @@ export function App() {
                 onChange={(e) =>
                   setTo(e.target.value ? Number(e.target.value) : "")
                 }
-                placeholder="2020"
+                placeholder="2025"
                 style={{
                   padding: isMobile ? "12px 14px" : "10px 12px",
                   background: "rgba(25, 118, 210, 0.15)",
@@ -784,18 +814,38 @@ export function App() {
               style={{
                 padding: isMobile ? "12px 24px" : "10px 24px",
                 background:
-                  !canAdd || loading ? "rgba(144, 202, 249, 0.2)" : "#1976d2",
+                  !canAdd || loading
+                    ? "rgba(144, 202, 249, 0.2)"
+                    : "linear-gradient(135deg, #1976d2 0%, #1565c0 100%)",
                 color: "#e3f2fd",
                 border: "none",
-                borderRadius: 8,
+                borderRadius: 10,
                 fontSize: "14px",
                 fontWeight: 600,
                 fontFamily: "'Lato', sans-serif",
                 cursor: !canAdd || loading ? "not-allowed" : "pointer",
-                transition: "all 0.2s ease",
+                transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
                 opacity: !canAdd || loading ? 0.5 : 1,
                 minHeight: "44px" /* Touch-friendly */,
                 width: isMobile ? "100%" : "auto",
+                boxShadow:
+                  !canAdd || loading
+                    ? "none"
+                    : "0 4px 16px rgba(25, 118, 210, 0.4)",
+              }}
+              onMouseEnter={(e) => {
+                if (!(!canAdd || loading)) {
+                  e.currentTarget.style.transform = "translateY(-2px)";
+                  e.currentTarget.style.boxShadow =
+                    "0 6px 24px rgba(25, 118, 210, 0.5)";
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (!(!canAdd || loading)) {
+                  e.currentTarget.style.transform = "translateY(0)";
+                  e.currentTarget.style.boxShadow =
+                    "0 4px 16px rgba(25, 118, 210, 0.4)";
+                }
               }}
             >
               {loading ? "Loading..." : "Add Country"}
@@ -1091,11 +1141,13 @@ export function App() {
               </div>
             </>
           )}
-          <PopulationTable
-            countriesData={countriesData}
-            predictions={predictions}
-            predictionDetails={predictionDetails}
-          />
+          <div className={layoutStyles.chartContainer}>
+            <PopulationTable
+              countriesData={countriesData}
+              predictions={predictions}
+              predictionDetails={predictionDetails}
+            />
+          </div>
         </div>
       </div>
     </div>
