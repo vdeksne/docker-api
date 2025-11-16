@@ -158,6 +158,7 @@ export function PopulationTable({
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [containerWidth, setContainerWidth] = useState(1400);
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
   const svgRef = useRef<SVGSVGElement | null>(null);
 
   const handleWheel = useCallback(
@@ -199,7 +200,13 @@ export function PopulationTable({
   // Responsive width - use max available width
   useEffect(() => {
     const updateWidth = () => {
-      setContainerWidth(Math.min(window.innerWidth - 100, 1400));
+      const mobile = window.innerWidth <= 768;
+      setIsMobile(mobile);
+      setContainerWidth(
+        mobile
+          ? Math.min(window.innerWidth - 24, 1400)
+          : Math.min(window.innerWidth - 100, 1400)
+      );
     };
     updateWidth();
     window.addEventListener("resize", updateWidth);
@@ -326,12 +333,12 @@ export function PopulationTable({
   const [minYear, maxYear] = getMinMax(years);
   const [minValue, maxValue] = getMinMax(allValues);
 
-  const width = containerWidth - 48; // Account for padding
-  const height = 500; // Increased height
-  const paddingLeft = 90;
-  const paddingBottom = 60;
-  const paddingTop = 50;
-  const paddingRight = 60;
+  const width = containerWidth - (isMobile ? 24 : 48); // Account for padding
+  const height = isMobile ? 350 : 500; // Smaller height on mobile
+  const paddingLeft = isMobile ? 50 : 90;
+  const paddingBottom = isMobile ? 50 : 60;
+  const paddingTop = isMobile ? 40 : 50;
+  const paddingRight = isMobile ? 30 : 60;
 
   const x = (year: number) =>
     paddingLeft +
@@ -558,7 +565,7 @@ export function PopulationTable({
   const yoyPaddingLeft = 80;
   const yoyPaddingRight = 50;
   const yoyPaddingTop = 40;
-  const yoyPaddingBottom = 50;
+  const yoyPaddingBottom = isMobile ? 60 : 70; // Increased for vertical labels
   const yoyX = (year: number) =>
     yoyPaddingLeft +
     ((year - (yoyYears[0] ?? year)) /
@@ -694,17 +701,18 @@ export function PopulationTable({
   return (
     <div
       style={{
-        marginTop: 32,
+        marginTop: isMobile ? 20 : 32,
         background: "rgba(25, 118, 210, 0.08)",
         border: "1px solid rgba(144, 202, 249, 0.12)",
         borderRadius: 16,
-        padding: "32px 24px 24px 24px",
+        padding: isMobile ? "20px 12px 16px 12px" : "32px 24px 24px 24px",
         boxShadow: "0 8px 32px rgba(0, 0, 0, 0.3)",
         width: "100%",
         maxWidth: "100%",
         marginLeft: "auto",
         marginRight: "auto",
         fontFamily: "'Lato', sans-serif",
+        overflowX: "auto" /* Allow horizontal scroll on mobile */,
       }}
     >
       <div
@@ -720,14 +728,21 @@ export function PopulationTable({
             margin: 0,
             fontWeight: 700,
             letterSpacing: "-0.3px",
-            fontSize: 28,
+            fontSize: isMobile ? 20 : 28,
             color: "#e3f2fd",
             fontFamily: "'Lato', sans-serif",
           }}
         >
           {chartTitle}
         </h3>
-        <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+        <div
+          style={{
+            display: "flex",
+            gap: 12,
+            alignItems: "center",
+            flexWrap: isMobile ? "wrap" : "nowrap",
+          }}
+        >
           <button
             onClick={() => setZoomLevel(Math.max(0.5, zoomLevel - 0.1))}
             style={{
@@ -1300,7 +1315,13 @@ export function PopulationTable({
                   opacity={0.9}
                 />
               ))}
-              {yoyYears.map((year) => {
+              {(isMobile
+                ? yoyYears.filter(
+                    (_, index) =>
+                      index % 5 === 0 || index === yoyYears.length - 1
+                  )
+                : yoyYears
+              ).map((year) => {
                 const tickX = yoyX(year);
                 return (
                   <g key={`yoy-year-${year}`}>
@@ -1313,10 +1334,13 @@ export function PopulationTable({
                     />
                     <text
                       x={tickX}
-                      y={yoyHeight - yoyPaddingBottom + 26}
+                      y={yoyHeight - yoyPaddingBottom + 40}
                       textAnchor="middle"
                       fontSize={12}
                       fill="rgba(227, 242, 253, 0.75)"
+                      transform={`rotate(-90, ${tickX}, ${
+                        yoyHeight - yoyPaddingBottom + 40
+                      })`}
                       style={{ fontFamily: "'Lato', sans-serif" }}
                     >
                       {year}
@@ -1404,11 +1428,16 @@ export function PopulationTable({
           >
             Data Table (Chart Series)
           </h4>
-          <div style={{ overflowX: "auto" }}>
+          <div
+            style={{
+              overflowX: "auto",
+              WebkitOverflowScrolling: "touch" /* Smooth scrolling on iOS */,
+            }}
+          >
             <table
               style={{
                 width: "100%",
-                minWidth: 480,
+                minWidth: isMobile ? 600 : 480,
                 borderCollapse: "collapse",
                 fontFamily: "'Lato', sans-serif",
                 color: "#e3f2fd",

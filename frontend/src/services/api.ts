@@ -1,7 +1,5 @@
-const DEFAULT_API_BASE =
-  typeof window !== "undefined" && window.location.hostname !== "localhost"
-    ? "https://139-59-138-164.sslip.io"
-    : "http://localhost:4000";
+// Default to production backend - can be overridden with VITE_BACKEND_URL env var
+const DEFAULT_API_BASE = "https://139-59-138-164.sslip.io";
 
 const API_BASE =
   (import.meta as any).env?.VITE_BACKEND_URL?.trim() || DEFAULT_API_BASE;

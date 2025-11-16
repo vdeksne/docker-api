@@ -259,6 +259,15 @@ export function App() {
   >({});
   const [predicting, setPredicting] = useState(false);
   const [predictionYears, setPredictionYears] = useState<number>(5);
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth <= 768);
+    };
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
   const QUICK_COUNTRY = "LVA";
   const QUICK_FROM = 1960;
@@ -550,7 +559,7 @@ export function App() {
       style={{
         maxWidth: 1200,
         margin: "0 auto",
-        padding: "32px 24px",
+        padding: isMobile ? "16px 12px" : "32px 24px",
         fontFamily: "'Lato', sans-serif",
         minHeight: "100vh",
         background: "#000101",
@@ -558,10 +567,10 @@ export function App() {
     >
       <h1
         style={{
-          fontSize: "36px",
+          fontSize: isMobile ? "24px" : "36px",
           fontWeight: 700,
           color: "#e3f2fd",
-          marginBottom: "32px",
+          marginBottom: isMobile ? "20px" : "32px",
           letterSpacing: "-0.5px",
           fontFamily: "'Lato', sans-serif",
         }}
@@ -615,11 +624,11 @@ export function App() {
             onSubmit={onAddCountry}
             style={{
               display: "flex",
-              gap: 16,
+              gap: isMobile ? 12 : 16,
               alignItems: "flex-end",
               flexWrap: "wrap",
               marginBottom: 24,
-              padding: "24px",
+              padding: isMobile ? "16px" : "24px",
               background: "rgba(25, 118, 210, 0.08)",
               borderRadius: 12,
               border: "1px solid rgba(144, 202, 249, 0.12)",
@@ -642,8 +651,9 @@ export function App() {
                 value={indicator}
                 onChange={(e) => setIndicator(e.target.value)}
                 style={{
-                  minWidth: 280,
-                  padding: "10px 12px",
+                  minWidth: isMobile ? "100%" : 280,
+                  width: isMobile ? "100%" : "auto",
+                  padding: isMobile ? "12px 14px" : "10px 12px",
                   background: "rgba(25, 118, 210, 0.15)",
                   border: "1px solid rgba(144, 202, 249, 0.3)",
                   borderRadius: 8,
@@ -652,6 +662,7 @@ export function App() {
                   fontFamily: "'Lato', sans-serif",
                   cursor: "pointer",
                   outline: "none",
+                  minHeight: "44px" /* Touch-friendly */,
                 }}
               >
                 {INDICATORS.map(({ code, name }) => {
@@ -680,8 +691,9 @@ export function App() {
                 value={newCountry}
                 onChange={(e) => setNewCountry(e.target.value)}
                 style={{
-                  minWidth: 200,
-                  padding: "10px 12px",
+                  minWidth: isMobile ? "100%" : 200,
+                  width: isMobile ? "100%" : "auto",
+                  padding: isMobile ? "12px 14px" : "10px 12px",
                   background: "rgba(25, 118, 210, 0.15)",
                   border: "1px solid rgba(144, 202, 249, 0.3)",
                   borderRadius: 8,
@@ -690,6 +702,7 @@ export function App() {
                   fontFamily: "'Lato', sans-serif",
                   cursor: "pointer",
                   outline: "none",
+                  minHeight: "44px" /* Touch-friendly */,
                 }}
               >
                 {COUNTRIES_LIST.map(({ code, name }) => (
@@ -719,15 +732,16 @@ export function App() {
                 }
                 placeholder="1960"
                 style={{
-                  padding: "10px 12px",
+                  padding: isMobile ? "12px 14px" : "10px 12px",
                   background: "rgba(25, 118, 210, 0.15)",
                   border: "1px solid rgba(144, 202, 249, 0.3)",
                   borderRadius: 8,
                   color: "#e3f2fd",
                   fontSize: "14px",
                   fontFamily: "'Lato', sans-serif",
-                  width: "120px",
+                  width: isMobile ? "100%" : "120px",
                   outline: "none",
+                  minHeight: "44px" /* Touch-friendly */,
                 }}
               />
             </label>
@@ -751,15 +765,16 @@ export function App() {
                 }
                 placeholder="2020"
                 style={{
-                  padding: "10px 12px",
+                  padding: isMobile ? "12px 14px" : "10px 12px",
                   background: "rgba(25, 118, 210, 0.15)",
                   border: "1px solid rgba(144, 202, 249, 0.3)",
                   borderRadius: 8,
                   color: "#e3f2fd",
                   fontSize: "14px",
                   fontFamily: "'Lato', sans-serif",
-                  width: "120px",
+                  width: isMobile ? "100%" : "120px",
                   outline: "none",
+                  minHeight: "44px" /* Touch-friendly */,
                 }}
               />
             </label>
@@ -767,7 +782,7 @@ export function App() {
               disabled={!canAdd || loading}
               type="submit"
               style={{
-                padding: "10px 24px",
+                padding: isMobile ? "12px 24px" : "10px 24px",
                 background:
                   !canAdd || loading ? "rgba(144, 202, 249, 0.2)" : "#1976d2",
                 color: "#e3f2fd",
@@ -779,6 +794,8 @@ export function App() {
                 cursor: !canAdd || loading ? "not-allowed" : "pointer",
                 transition: "all 0.2s ease",
                 opacity: !canAdd || loading ? 0.5 : 1,
+                minHeight: "44px" /* Touch-friendly */,
+                width: isMobile ? "100%" : "auto",
               }}
             >
               {loading ? "Loading..." : "Add Country"}
